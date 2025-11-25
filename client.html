@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WebSocket Client</title>
+</head>
+<body>
+<h2>WebSocket Test</h2>
+<div>
+  <input type="text" id="message" placeholder="Type a message">
+  <button onclick="sendMessage()">Send</button>
+</div>
+<div id="chat" style="margin-top: 20px; border: 1px solid #ccc; padding: 10px; height: 200px; overflow-y: scroll;">
+</div>
+
+<script>
+let ws = new WebSocket("ws://localhost:8080");
+
+ws.onopen = function() {
+    appendMessage("Connected to WebSocket server");
+};
+
+ws.onmessage = function(event) {
+    appendMessage("Received: " + event.data);
+};
+
+ws.onclose = function() {
+    appendMessage("Disconnected from server");
+};
+
+function sendMessage() {
+    let msg = document.getElementById('message').value;
+    if(msg) {
+        ws.send(msg);
+        document.getElementById('message').value = '';
+    }
+}
+
+function appendMessage(msg) {
+    let chat = document.getElementById('chat');
+    chat.innerHTML += msg + "<br>";
+    chat.scrollTop = chat.scrollHeight;
+}
+</script>
+</body>
+</html>

@@ -3,7 +3,7 @@
         'name' => 'steven/trashbin-management',
         'pretty_version' => 'dev-main',
         'version' => 'dev-main',
-        'reference' => '71fd6f1cbfe51532c66eb1510262fbc2a58dfd29',
+        'reference' => '72badda4f2f1e953c40a587a1b39f8308427c4f5',
         'type' => 'library',
         'install_path' => __DIR__ . '/../../',
         'aliases' => array(),
@@ -265,7 +265,7 @@
         'steven/trashbin-management' => array(
             'pretty_version' => 'dev-main',
             'version' => 'dev-main',
-            'reference' => '71fd6f1cbfe51532c66eb1510262fbc2a58dfd29',
+            'reference' => '72badda4f2f1e953c40a587a1b39f8308427c4f5',
             'type' => 'library',
             'install_path' => __DIR__ . '/../../',
             'aliases' => array(),

@@ -27,7 +27,7 @@ class ComposerStaticInitbb8782bcf44ca3fb44cc59a2dd0d39e7
             'Symfony\\Polyfill\\Mbstring\\' => 26,
             'Symfony\\Component\\Routing\\' => 26,
             'Symfony\\Component\\HttpFoundation\\' => 33,
-            'Steven\\trashbin-management\\' => 27,
+            'Steven\\TrashbinManagement\\' => 26,
         ),
         'R' => 
         array (
@@ -95,7 +95,7 @@ class ComposerStaticInitbb8782bcf44ca3fb44cc59a2dd0d39e7
         array (
             0 => __DIR__ . '/..' . '/symfony/http-foundation',
         ),
-        'Steven\\trashbin-management\\' => 
+        'Steven\\TrashbinManagement\\' => 
         array (
             0 => __DIR__ . '/../..' . '/src',
         ),

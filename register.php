@@ -85,35 +85,36 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             <h4 class="mb-0">Create an Account</h4>
           </div>
           <div class="card-body">
-            <?php if (!empty($error_message)): ?>
-              <div class="alert alert-danger">
-                <?php echo htmlspecialchars($error_message); ?>
-              <a href="#" onclick="openInfoModal('privacyModal'); return false;">Privacy Policy</a>
-                      <span class="separator">•</span>
-                      <a href="#" onclick="openInfoModal('termsModal'); return false;">Terms of Service</a>
-                      <span class="separator">•</span>
-                      <a href="#" onclick="openInfoModal('supportModal'); return false;">Support</a>
-                <input type="text" class="form-control" id="username" name="username" required>
-              </div>
-              <div class="mb-3">
-                <label for="email" class="form-label">Email</label>
-                <input type="email" class="form-control" id="email" name="email" required>
-              </div>
-              <div class="mb-3">
-                <label for="password" class="form-label">Password</label>
-                <input type="password" class="form-control" id="password" name="password" required>
-              </div>
-              <div class="mb-3">
-                <label for="confirm_password" class="form-label">Confirm Password</label>
-                <input type="password" class="form-control" id="confirm_password" name="confirm_password" required>
-              </div>
-              <div class="d-grid">
-                <button type="submit" class="btn btn-primary">
-                  <i class="fas fa-user-plus"></i> Register
-                </button>
-              </div>
-            </form>
-          </div>
+  <?php if (!empty($error_message)): ?>
+    <div class="alert alert-danger">
+      <?php echo htmlspecialchars($error_message); ?>
+    </div>
+  <?php endif; ?>
+
+  <form method="POST" action="">
+    <div class="mb-3">
+      <label for="username" class="form-label">Username</label>
+      <input type="text" class="form-control" id="username" name="username" required>
+    </div>
+    <div class="mb-3">
+      <label for="email" class="form-label">Email</label>
+      <input type="email" class="form-control" id="email" name="email" required>
+    </div>
+    <div class="mb-3">
+      <label for="password" class="form-label">Password</label>
+      <input type="password" class="form-control" id="password" name="password" required>
+    </div>
+    <div class="mb-3">
+      <label for="confirm_password" class="form-label">Confirm Password</label>
+      <input type="password" class="form-control" id="confirm_password" name="confirm_password" required>
+    </div>
+    <div class="d-grid">
+      <button type="submit" class="btn btn-primary">
+        <i class="fas fa-user-plus"></i> Register
+      </button>
+    </div>
+  </form>
+</div>
           <div class="card-footer text-center">
             <small class="text-muted">Already have an account? <a href="login.php">Login here</a>.</small>
           </div>

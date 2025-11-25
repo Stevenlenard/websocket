@@ -2,7 +2,7 @@
     "name": "steven/trashbin-management",
     "autoload": {
         "psr-4": {
-            "Steven\\trashbin-management\\": "src/"
+            "Steven\\TrashbinManagement\\": "src/"
         }
     },
     "require": {
