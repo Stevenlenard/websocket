@@ -36,7 +36,7 @@
                 <a href="features.php" class="nav-link">Features</a>
             </nav>
              <nav class="nav-buttons">
-                <a href="#" onclick="openRoleModal(event)" class="btn btn-login">
+                <a href="login.php" class="btn btn-login">
                     <i class="fas fa-sign-in-alt"></i> Login
                 </a>
                 <a href="registration.php" class="btn btn-signup">
@@ -64,8 +64,8 @@
         <div class="container">
             <h2 class="section-title">Our Mission</h2>
             <div class="mission-content">
-                <p>At Smart Trashbin, we believe that effective waste management is fundamental to creating cleaner, healthier environments. Our mission is to empower organizations and communities with intelligent technology that transforms how waste is monitored, managed, and disposed of.</p>
-                <p>We're committed to reducing manual effort, preventing overflowing bins, and promoting environmental responsibility through accurate, real-time monitoring and user-friendly reporting.</p>
+                <p>At Smart Trashbin, we believe that effective waste management is fundamental to creating cleaner, healthier environments. Our mission is to empower organizations and communities[...]
+                <p>We're committed to reducing manual effort, preventing overflowing bins, and promoting environmental responsibility through accurate, real-time monitoring and user-friendly repor[...]
             </div>
         </div>
     </section>
@@ -213,44 +213,6 @@
         </div>
     </section>
 
-    <!-- Technology Stack Section -->
-    <section class="technology">
-        <div class="container">
-            <h2 class="section-title">Our Technology</h2>
-            <p class="section-subtitle">Built on cutting-edge IoT and cloud infrastructure</p>
-            <div class="tech-grid">
-                <div class="tech-item">
-                    <div class="tech-icon">
-                        <i class="fas fa-wifi"></i>
-                    </div>
-                    <h3>IoT Connectivity</h3>
-                    <p>Advanced wireless sensors with long-range connectivity and low power consumption for reliable monitoring.</p>
-                </div>
-                <div class="tech-item">
-                    <div class="tech-icon">
-                        <i class="fas fa-brain"></i>
-                    </div>
-                    <h3>AI & Machine Learning</h3>
-                    <p>Intelligent algorithms that learn from patterns and predict bin capacity needs with high accuracy.</p>
-                </div>
-                <div class="tech-item">
-                    <div class="tech-icon">
-                        <i class="fas fa-server"></i>
-                    </div>
-                    <h3>Cloud Infrastructure</h3>
-                    <p>Scalable cloud platform with 99.9% uptime guarantee and enterprise-grade security protocols.</p>
-                </div>
-                <div class="tech-item">
-                    <div class="tech-icon">
-                        <i class="fas fa-mobile-alt"></i>
-                    </div>
-                    <h3>Mobile & Web Apps</h3>
-                    <p>Responsive applications accessible on any device, providing real-time access to bin status and alerts.</p>
-                </div>
-            </div>
-        </div>
-    </section>
-
     <!-- Footer -->
     <div class="footer">
         <div class="footer-content">
@@ -276,7 +238,7 @@
           <p class="modal-subtitle">Choose how you want to access the system</p>
           
           <div class="role-options">
-            <a href="user-login.php" class="role-card role-user">
+            <a href="login.php" class="role-card role-user">
               <div class="role-icon">
                 <i class="fas fa-user-circle"></i>
               </div>
@@ -284,7 +246,7 @@
               <p>Access as a regular user</p>
             </a>
             
-            <a href="admin-login.php" class="role-card role-admin">
+            <a href="login.php" class="role-card role-admin">
               <div class="role-icon">
                 <i class="fas fa-shield-alt"></i>
               </div>
@@ -299,6 +261,5 @@
     <script src="js/about.js"></script>
     <script src="js/scroll-progress.js"></script>
     <?php include 'includes/info-modals.php'; ?>
-    
 </body>
 </html>

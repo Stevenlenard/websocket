@@ -37,7 +37,7 @@
                 <a href="features.php" class="nav-link">Features</a>
             </nav>
             <nav class="nav-buttons">
-                <a href="#" onclick="openRoleModal(event)" class="btn btn-login">
+                <a href="login.php" class="btn btn-login">
                     <i class="fas fa-sign-in-alt"></i> Login
                 </a>
                 <a href="registration.php" class="btn btn-signup">
@@ -62,7 +62,7 @@
           Real-time monitoring, automated alerts, and comprehensive reporting for efficient waste collection
         </p>
         <div class="slideshow-buttons">
-          <a href="#" onclick="openRoleModal(event)" class="btn btn-primary">
+          <a href="login.php" class="btn btn-primary">
             <i class="fas fa-rocket"></i> Get Started
           </a>
           <a href="about.php" class="btn btn-secondary">
@@ -288,7 +288,7 @@
           <p class="modal-subtitle">Choose how you want to access the system</p>
           
           <div class="role-options">
-            <a href="user-login.php" class="role-card role-user">
+            <a href="login.php" class="role-card role-user">
               <div class="role-icon">
                 <i class="fas fa-user-circle"></i>
               </div>
@@ -296,7 +296,7 @@
               <p>Access as a regular user</p>
             </a>
             
-            <a href="admin-login.php" class="role-card role-admin">
+            <a href="login.php" class="role-card role-admin">
               <div class="role-icon">
                 <i class="fas fa-shield-alt"></i>
               </div>
