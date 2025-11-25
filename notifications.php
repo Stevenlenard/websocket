@@ -131,12 +131,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                      'message' => $message ?: '',
                      'notification_id' => $newId,
                      'notification_type' => $notification_type,
+                     'bin_id' => $bin_id,
+                     'janitor_id' => $janitor_id,
+                     'admin_id' => $creatorAdminId,
                      'ts' => date('Y-m-d H:i:s')
                  ];
-                 $fp = @stream_socket_client("tcp://127.0.0.1:2346", $errno, $errstr, 1);
-                 if ($fp) {
-                     fwrite($fp, json_encode($wsMsg));
-                     fclose($fp);
+                 // Try textalk client if available
+                 if (class_exists('\WebSocket\Client')) {
+                     @require_once __DIR__ . '/vendor/autoload.php';
+                     try {
+                         $ws = new \WebSocket\Client("ws://127.0.0.1:8080");
+                         $ws->send(json_encode($wsMsg));
+                         $ws->close();
+                     } catch (Exception $e) {
+                         // fallback to local TCP
+                         $fp = @stream_socket_client("tcp://127.0.0.1:2346", $errno, $errstr, 0.6);
+                         if ($fp) { fwrite($fp, json_encode($wsMsg)); fclose($fp); }
+                     }
+                 } else {
+                     $fp = @stream_socket_client("tcp://127.0.0.1:2346", $errno, $errstr, 0.6);
+                     if ($fp) { fwrite($fp, json_encode($wsMsg)); fclose($fp); }
                  }
              } catch(Exception $e) { /* ignore ws send error */ }
  
@@ -520,6 +534,7 @@ try {
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
   <style>
     #notifToastContainer { position: fixed; top: 1rem; right: 1rem; z-index: 2000; }
+    .notification-live { padding: 0.5rem 0.75rem; border-bottom: 1px solid rgba(0,0,0,0.03); }
   </style>
 </head>
 <body>
@@ -807,32 +822,108 @@ try {
 <!-- Janitor dashboard JS for header/footer modal helpers -->
 <script src="js/janitor-dashboard.js"></script>
 
-<!-- Fallback wiring: ensure notification bell and logout open the janitor modals and do not navigate -->
+<!-- Real-time WebSocket client: receives notifications from server -->
 <script>
-  document.addEventListener('DOMContentLoaded', function() {
-    try {
-      const notifBtn = document.getElementById('notificationsBtn');
-      if (notifBtn) {
-        notifBtn.addEventListener('click', function(e) {
-          e.preventDefault();
-          if (typeof openNotificationsModal === 'function') openNotificationsModal(e);
-          else if (typeof showModalById === 'function') showModalById('notificationsModal');
-        });
+(function(){
+  // Attempt to connect to WebSocket server (ws://127.0.0.1:8080)
+  var wsUrl = "ws://127.0.0.1:8080";
+  try {
+    var ws = new WebSocket(wsUrl);
+
+    ws.addEventListener('open', function() {
+      console.log("Connected to WebSocket server at " + wsUrl);
+    });
+
+    ws.addEventListener('message', function(evt) {
+      try {
+        var data = JSON.parse(evt.data);
+      } catch (err) {
+        console.warn('Invalid ws payload', err);
+        return;
       }
 
-      const logoutBtn = document.getElementById('logoutBtn');
-      if (logoutBtn) {
-        logoutBtn.addEventListener('click', function(e) {
-          e.preventDefault();
-          if (typeof showLogoutModal === 'function') showLogoutModal(e);
-          else if (typeof showModalById === 'function') showModalById('logoutModal');
-          else window.location.href = 'logout.php';
-        });
+      // Only handle notification-type messages
+      if (!data || !data.type) return;
+
+      if (data.type === 'notification' || data.type === 'bin_updated' || data.type === 'bin_status_changed' || data.type === 'bin_toggled' || data.type === 'bin_reassigned') {
+        var tableBody = document.getElementById('notificationsTableBody');
+        if (!tableBody) return;
+
+        var now = data.ts || new Date().toISOString();
+        var notifId = data.notification_id || '';
+        var title = data.title || (data.message ? data.message.split('\n',1)[0] : 'Notification');
+        var message = data.message || '';
+        var type = data.notification_type || 'info';
+        var binId = data.bin_id || '';
+        var janitorId = data.janitor_id || '';
+        var adminId = data.admin_id || '';
+
+        // Build a new table row consistent with server-rendered rows
+        var tr = document.createElement('tr');
+        tr.setAttribute('data-id', notifId);
+        if (binId) tr.setAttribute('data-bin-id', binId);
+        if (janitorId) tr.setAttribute('data-janitor-id', janitorId);
+        tr.setAttribute('data-title', title);
+        tr.setAttribute('data-message', message);
+
+        var timeCell = document.createElement('td');
+        timeCell.textContent = (data.created_at ? data.created_at : (new Date()).toISOString().slice(0,16).replace('T',' '));
+        var typeCell = document.createElement('td');
+        typeCell.textContent = (type.charAt(0).toUpperCase() + type.slice(1));
+        var titleCell = document.createElement('td');
+        titleCell.textContent = title;
+        var msgCell = document.createElement('td');
+        msgCell.className = 'd-none d-md-table-cell';
+        msgCell.innerHTML = '<small class="text-muted">' + (message ? message : '') + '</small>';
+        var targetCell = document.createElement('td');
+        targetCell.className = 'd-none d-lg-table-cell';
+        if (data.bin_code) targetCell.textContent = data.bin_code;
+        else if (binId) targetCell.textContent = 'Bin #' + binId;
+        else if (data.janitor_name) targetCell.textContent = data.janitor_name;
+        else if (janitorId) targetCell.textContent = 'Janitor #' + janitorId;
+        else if (adminId) targetCell.textContent = 'Admin #' + adminId;
+        else targetCell.textContent = '-';
+
+        var actionCell = document.createElement('td');
+        actionCell.className = 'text-end';
+        var btn = document.createElement('button');
+        btn.className = 'btn btn-sm btn-success mark-read-btn';
+        btn.setAttribute('data-id', notifId || '');
+        btn.innerHTML = '<i class="fas fa-check me-1"></i>Read';
+        actionCell.appendChild(btn);
+
+        tr.appendChild(timeCell);
+        tr.appendChild(typeCell);
+        tr.appendChild(titleCell);
+        tr.appendChild(msgCell);
+        tr.appendChild(targetCell);
+        tr.appendChild(actionCell);
+
+        // Prepend row to the table body
+        if (tableBody.firstChild) {
+          tableBody.insertBefore(tr, tableBody.firstChild);
+        } else {
+          tableBody.appendChild(tr);
+        }
+
+        // Optionally show a toast
+        if (typeof showToast === 'function') {
+          showToast(title + (message ? ': ' + message : ''), type === 'info' ? 'info' : (type === 'success' ? 'success' : 'warning'));
+        }
       }
-    } catch (err) {
-      console.warn('Header fallback handlers error', err);
-    }
-  });
+    });
+
+    ws.addEventListener('close', function() {
+      console.log("Disconnected from WebSocket server");
+    });
+
+    ws.addEventListener('error', function(err) {
+      console.warn("WebSocket error", err);
+    });
+  } catch (err) {
+    console.warn('WebSocket connection failed', err);
+  }
+})();
 </script>
 
 <script src="js/websocket-client.js"></script>

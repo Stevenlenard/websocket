@@ -3,6 +3,42 @@ require_once 'includes/config.php';
 require_once 'includes/bin-actions-dropdown.php';
 require_once 'includes/auth-sessions.php'; // new: persistent session helpers
 
+// Helper: broadcast a message to the WebSocket server (tries textalk client, falls back to local TCP broadcast)
+function broadcastWs(array $payload) {
+    // small helper to guard against failures
+    try {
+        $msg = json_encode($payload);
+
+        // Prefer the textalk/websocket client if installed (ws://)
+        if (class_exists('\WebSocket\Client')) {
+            // If composer autoload isn't already loaded, require it (safe if not present)
+            if (!class_exists('\WebSocket\Client')) {
+                @require_once __DIR__ . '/vendor/autoload.php';
+            }
+            try {
+                $ws = new \WebSocket\Client("ws://127.0.0.1:8080");
+                $ws->send($msg);
+                $ws->close();
+                return true;
+            } catch (Exception $e) {
+                // fallback below
+            }
+        }
+
+        // Fallback: write to local TCP listener (used by some setups)
+        $fp = @stream_socket_client("tcp://127.0.0.1:2346", $errno, $errstr, 0.6);
+        if ($fp) {
+            fwrite($fp, $msg);
+            fclose($fp);
+            return true;
+        }
+    } catch (Exception $e) {
+        // swallow errors to not break primary flow
+        error_log("[broadcastWs] failed: " . $e->getMessage());
+    }
+    return false;
+}
+
 // ✅ Check if admin is logged in
 if (!isLoggedIn() || !isAdmin()) {
     // Try persistent token fallback (cookie)
@@ -81,6 +117,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 $title = "New Bin Added";
                 $message = "Bin '{$bin_code}' was added" . (!empty($location) ? " at {$location}" : "") . ".";
 
+                $newNotificationId = null;
                 if (isset($pdo) && $pdo instanceof PDO) {
                     $stmtN = $pdo->prepare("
                         INSERT INTO notifications (admin_id, janitor_id, bin_id, notification_type, title, message, created_at)
@@ -94,6 +131,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                         ':title' => $title,
                         ':message' => $message
                     ]);
+                    $newNotificationId = (int)$pdo->lastInsertId();
                 } else {
                     // fallback to mysqli
                     if ($conn->query("SHOW TABLES LIKE 'notifications'")->num_rows > 0) {
@@ -108,10 +146,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                             $binParam = (int)$new_bin_id;
                             $stmtN->bind_param("iiisss", $adminParam, $janitorParam, $binParam, $notificationType, $title, $message);
                             $stmtN->execute();
+                            $newNotificationId = $stmtN->insert_id;
                             $stmtN->close();
                         }
                     }
                 }
+
+                // Broadcast real-time notification (best-effort)
+                $wsPayload = [
+                    'type' => 'notification',
+                    'notification_id' => $newNotificationId,
+                    'notification_type' => $notificationType,
+                    'title' => $title,
+                    'message' => $message,
+                    'bin_id' => (int)$new_bin_id,
+                    'janitor_id' => $assignedJanitor !== null ? (int)$assignedJanitor : null,
+                    'admin_id' => $creatorAdminId !== null ? (int)$creatorAdminId : null,
+                    'created_at' => date('Y-m-d H:i:s')
+                ];
+                broadcastWs($wsPayload);
             } catch (Exception $e) {
                 error_log("[bins] notification insert failed: " . $e->getMessage());
                 // Continue even if notification insertion fails
@@ -152,6 +205,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             $stmt->execute();
             $stmt->close();
 
+            // Broadcast change
+            broadcastWs([
+                'type' => 'bin_reassigned',
+                'bin_id' => $bin_id,
+                'assigned_to' => $janitor !== null && $janitor !== '' ? (int)$janitor : null,
+                'message' => "Bin #{$bin_id} assignment updated.",
+                'ts' => date('Y-m-d H:i:s')
+            ]);
+
             echo json_encode(['success' => true]);
             exit;
         }
@@ -170,6 +232,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             $stmt->bind_param("si", $new_status, $bin_id);
             $stmt->execute();
             $stmt->close();
+
+            // Broadcast toggle
+            broadcastWs([
+                'type' => 'bin_toggled',
+                'bin_id' => $bin_id,
+                'status' => $new_status,
+                'message' => "Bin #{$bin_id} status changed to {$new_status}.",
+                'ts' => date('Y-m-d H:i:s')
+            ]);
 
             echo json_encode(['success' => true, 'status' => $new_status]);
             exit;
@@ -194,6 +265,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             $stmt->bind_param("sssi", $bin_code, $location, $type, $bin_id);
             $stmt->execute();
             $stmt->close();
+
+            // Broadcast edit
+            broadcastWs([
+                'type' => 'bin_edited',
+                'bin_id' => $bin_id,
+                'message' => "Bin #{$bin_id} details updated.",
+                'ts' => date('Y-m-d H:i:s')
+            ]);
 
             echo json_encode(['success' => true]);
             exit;
@@ -229,6 +308,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             $stmt->execute();
             $stmt->close();
 
+            // Broadcast status change
+            broadcastWs([
+                'type' => 'bin_status_changed',
+                'bin_id' => $bin_id,
+                'status' => $status,
+                'message' => "Bin #{$bin_id} status manually set to {$status}.",
+                'ts' => date('Y-m-d H:i:s')
+            ]);
+
             echo json_encode(['success' => true, 'status' => $status]);
             exit;
         }
@@ -242,6 +330,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             $stmt->bind_param("i", $bin_id);
             if (!$stmt->execute()) throw new Exception($stmt->error);
             $stmt->close();
+
+            // Broadcast deletion
+            broadcastWs([
+                'type' => 'bin_deleted',
+                'bin_id' => $bin_id,
+                'message' => "Bin #{$bin_id} was deleted.",
+                'ts' => date('Y-m-d H:i:s')
+            ]);
 
             echo json_encode(['success' => true]);
             exit;
@@ -260,6 +356,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 $res = $conn->query("SELECT assigned_to FROM bins WHERE bin_id = " . (int)$bin_id);
                 $assigned = ($res && $r = $res->fetch_assoc()) ? $r['assigned_to'] : null;
 
+                $newNotificationId = null;
                 if (isset($pdo) && $pdo instanceof PDO) {
                     $stmtN = $pdo->prepare("
                         INSERT INTO notifications (admin_id, janitor_id, bin_id, notification_type, title, message, created_at)
@@ -273,6 +370,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                         ':title' => $title,
                         ':message' => $message
                     ]);
+                    $newNotificationId = (int)$pdo->lastInsertId();
                 } else {
                     if ($conn->query("SHOW TABLES LIKE 'notifications'")->num_rows > 0) {
                         $stmtN = $conn->prepare("
@@ -284,10 +382,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                             $janitorParam = $assigned !== null ? (int)$assigned : null;
                             $stmtN->bind_param("iiisss", $adminParam, $janitorParam, $bin_id, $notificationType, $title, $message);
                             $stmtN->execute();
+                            $newNotificationId = $stmtN->insert_id;
                             $stmtN->close();
                         }
                     }
                 }
+
+                // Broadcast notification
+                $wsMsg = [
+                    'type' => 'notification',
+                    'notification_id' => $newNotificationId,
+                    'notification_type' => $notificationType,
+                    'title' => $title,
+                    'message' => $message,
+                    'bin_id' => $bin_id,
+                    'janitor_id' => $assigned !== null ? (int)$assigned : null,
+                    'admin_id' => $creatorAdminId !== null ? (int)$creatorAdminId : null,
+                    'ts' => date('Y-m-d H:i:s')
+                ];
+                broadcastWs($wsMsg);
             } catch (Exception $e) {
                 error_log("[bins] send_notification failed: " . $e->getMessage());
             }
@@ -307,6 +420,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                     $stmt->close();
                 }
             }
+
+            // Broadcast calibration request
+            broadcastWs([
+                'type' => 'bin_calibrate',
+                'bin_id' => $bin_id,
+                'message' => "Calibration requested for bin #{$bin_id}.",
+                'ts' => date('Y-m-d H:i:s')
+            ]);
+
             echo json_encode(['success' => true]);
             exit;
         }
@@ -884,7 +1006,7 @@ if ($bins_result) {
                 <select class="form-select" id="binStatus" required>
                   <option value="">Select status</option>
                   <option value="empty">Empty</option>  
-                  <option value="empty">Half Full</option>
+                  <option value="half_full">Half Full</option>
                   <option value="full">Full</option>
                   <option value="needs_attention">Needs Attention</option>
                 </select>
@@ -1685,3 +1807,20 @@ if ($bins_result) {
           setTimeout(function() {
             const menuRect = menu.getBoundingClientRect();
             let top = btnRect.bottom + 8; // 8px offset
+            let left = btnRect.right - menuRect.width;
+            // keep within viewport
+            if (top + menuRect.height > viewportHeight - padding) {
+              top = Math.max(padding, btnRect.top - menuRect.height - 8);
+            }
+            if (left < padding) left = padding;
+            // Position fixed coordinates
+            menu.style.position = 'fixed';
+            menu.style.top = top + 'px';
+            menu.style.left = left + 'px';
+            menu.style.right = 'auto';
+            menu.style.transform = 'none';
+          }, 0);
+        });
+      </script>
+</body>
+</html>
