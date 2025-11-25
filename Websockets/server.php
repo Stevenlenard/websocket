@@ -1,35 +1,40 @@
 <?php
-require_once __DIR__ . '/../vendor/autoload.php';
+require dirname(__DIR__) . '/vendor/autoload.php';
 
-use Workerman\Worker;
+use Ratchet\MessageComponentInterface;
+use Ratchet\ConnectionInterface;
+use Ratchet\Server\IoServer;
+use Ratchet\Http\HttpServer;
+use Ratchet\WebSocket\WsServer;
 
-$ws_worker = new Worker("websocket://0.0.0.0:2346");
-
-$ws_worker->count = 1;
-
-// Store all connections so you can broadcast
-$ws_worker->connections = [];
-
-$ws_worker->onConnect = function($connection) use ($ws_worker) {
-    $ws_worker->connections[$connection->id] = $connection;
-};
-
-$ws_worker->onClose = function($connection) use ($ws_worker) {
-    unset($ws_worker->connections[$connection->id]);
-};
-
-$ws_worker->onMessage = function($connection, $data) {
-    // You can handle incoming messages if you want
-};
-
-// Custom broadcast for notification (listen on TCP input from PHP)
-$tcp_worker = new Worker("tcp://127.0.0.1:2346");
-$tcp_worker->onMessage = function($connection, $data) use ($ws_worker) {
-    // Broadcast to all websocket clients
-    foreach ($ws_worker->connections as $ws_connection) {
-        $ws_connection->send($data);
+class NotificationServer implements MessageComponentInterface {
+    public function onOpen(ConnectionInterface $conn) {
+        echo "New connection ({$conn->resourceId})\n";
     }
-    $connection->close();
-};
 
-Worker::runAll();
+    public function onMessage(ConnectionInterface $from, $msg) {
+        echo "Received: $msg\n";
+        $from->send("Server says: $msg");
+    }
+
+    public function onClose(ConnectionInterface $conn) {
+        echo "Connection {$conn->resourceId} closed\n";
+    }
+
+    public function onError(ConnectionInterface $conn, \Exception $e) {
+        echo "Error: {$e->getMessage()}\n";
+        $conn->close();
+    }
+}
+
+$server = IoServer::factory(
+    new HttpServer(
+        new WsServer(
+            new NotificationServer()
+        )
+    ),
+    8080
+);
+
+echo "WebSocket server running on ws://localhost:8080\n";
+$server->run();
